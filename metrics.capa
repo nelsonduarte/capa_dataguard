@@ -1,0 +1,76 @@
+// metrics.capa
+//
+// Aggregate analytics derived EXCLUSIVELY from the non-personal fields
+// of a Record (region, plan, signup month, amount). Because none of
+// these fields is @secret, every value computed here is public by
+// construction: the compiler would flag it if a @secret field ever
+// reached these functions. So the metrics can be written to the public
+// report with no declassify at all.
+//
+// Zero capabilities: pure aggregation over the parsed records.
+
+import domain
+
+// One aggregation bucket: a group key plus the running tally over the
+// records that fall in it.
+pub type Bucket {
+    key: String,
+    count: Int,
+    total_cents: Int
+}
+
+impl Bucket
+    // Integer average in minor units (truncating). Zero for an empty
+    // bucket, so callers never divide by zero.
+    pub fun average_cents(self) -> Int
+        if self.count == 0
+            return 0
+        return self.total_cents / self.count
+
+// The full analytic summary: three independent groupings plus the
+// dataset-wide totals. Everything here is public.
+pub type Summary {
+    record_count: Int,
+    total_cents: Int,
+    by_region: List<Bucket>,
+    by_plan: List<Bucket>,
+    by_month: List<Bucket>
+}
+
+// Fold a record's amount into the bucket list for the given key,
+// creating the bucket on first sight. Buckets stay in first-seen order
+// for stable, backend-identical output.
+fun accumulate(buckets: List<Bucket>, key: String, amount: Int) -> List<Bucket>
+    var out: List<Bucket> = []
+    var found = false
+    for b in buckets
+        if b.key == key
+            out.push(Bucket { key: b.key, count: b.count + 1, total_cents: b.total_cents + amount })
+            found = true
+        else
+            out.push(b)
+    if not found
+        out.push(Bucket { key: key, count: 1, total_cents: amount })
+    return out
+
+// Compute the summary over all records. Reads only the non-personal
+// fields, so no PII is ever in scope here.
+pub fun summarise(records: List<Record>) -> Summary
+    var by_region: List<Bucket> = []
+    var by_plan: List<Bucket> = []
+    var by_month: List<Bucket> = []
+    var total = 0
+    var n = 0
+    for r in records
+        by_region = accumulate(by_region, r.region, r.amount_cents)
+        by_plan = accumulate(by_plan, r.plan, r.amount_cents)
+        by_month = accumulate(by_month, signup_month(r), r.amount_cents)
+        total = total + r.amount_cents
+        n = n + 1
+    return Summary {
+        record_count: n,
+        total_cents: total,
+        by_region: by_region,
+        by_plan: by_plan,
+        by_month: by_month
+    }

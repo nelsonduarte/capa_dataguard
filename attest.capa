@@ -1,0 +1,78 @@
+// attest.capa
+//
+// The non-leak ATTESTATION. DataGuard emits a short document (text and
+// JSON) that states, for one run: how many records were processed, which
+// fields were personal data held under a confidentiality label, the
+// single audited disclosure bridge, and the claim that no raw personal
+// data reached the public report.
+//
+// This document is only HALF the proof, and it says so. The claim it
+// makes is BACKED by the Capa compiler, not by this program's word:
+//
+//   * The information-flow analysis (capa --check) rejects any path from
+//     a @secret field to a public sink that does not cross a declassify,
+//     so the "no raw PII in the report" property is machine-checked, not
+//     asserted. leaky_dataguard.capa demonstrates the rejection.
+//
+//   * The capability SBOM (capa --manifest / --cyclonedx) enumerates
+//     every declassification_site with its reason, and the exact
+//     capability surface (Fs and Stdio only, provably no Net). Emit it
+//     with the commands the attestation names; together with this
+//     document they form the machine-verifiable attestation.
+//
+// Zero capabilities: pure document construction. The caller writes it
+// through the same attenuated Fs used for the report.
+
+import domain
+
+// The personal-data fields DataGuard holds under a @secret label, named
+// so the attestation and the type declaration cannot silently drift.
+fun pii_fields() -> List<String>
+    return ["name", "email", "national_id", "iban"]
+
+fun join_quoted(items: List<String>) -> String
+    var s = ""
+    var first = true
+    for it in items
+        if first
+            s = "\"${it}\""
+            first = false
+        else
+            s = "${s}, \"${it}\""
+    return s
+
+// Human-readable attestation.
+pub fun attestation_text(record_count: Int, report_path: String) -> String
+    var s = "DataGuard non-leak attestation\n"
+    s = "${s}==============================\n\n"
+    s = "${s}records processed: ${record_count}\n"
+    s = "${s}personal-data fields held under a @secret confidentiality label:\n"
+    for f in pii_fields()
+        s = "${s}  - ${f}\n"
+    s = "${s}\naudited disclosure bridges (secret -> public):\n"
+    s = "${s}  - pseudonym.subject_token: GDPR Art. 4(5) keyed one-way token of the email\n"
+    s = "${s}\nclaim: no raw personal-data field reaches the public report at\n"
+    s = "${s}  ${report_path}. The only PII-derived value it carries is the\n"
+    s = "${s}  non-reversible pseudonym above.\n"
+    s = "${s}\nhow this claim is machine-verified (not merely asserted):\n"
+    s = "${s}  - capa --check *.capa  proves every @secret field can reach a\n"
+    s = "${s}    public sink only through a declassify (see leaky_dataguard.capa\n"
+    s = "${s}    for the rejection of a deliberate leak).\n"
+    s = "${s}  - capa --manifest dataguard.capa  lists every declassification\n"
+    s = "${s}    site with its reason and the exact capability surface\n"
+    s = "${s}    (Fs, Stdio; provably no Net).\n"
+    return s
+
+// Machine-readable attestation (hand-built JSON; deterministic key
+// order, backend-identical).
+pub fun attestation_json(record_count: Int, report_path: String) -> String
+    var s = "{\n"
+    s = "${s}  \"tool\": \"capa_dataguard\",\n"
+    s = "${s}  \"records_processed\": ${record_count},\n"
+    s = "${s}  \"pii_fields\": [${join_quoted(pii_fields())}],\n"
+    s = "${s}  \"disclosure_bridges\": [\"pseudonym.subject_token\"],\n"
+    s = "${s}  \"public_report\": \"${report_path}\",\n"
+    s = "${s}  \"claim\": \"no raw personal-data field reaches the public report; only a non-reversible pseudonym does\",\n"
+    s = "${s}  \"verified_by\": [\"capa --check\", \"capa --manifest\", \"capa --cyclonedx\"]\n"
+    s = "${s}}\n"
+    return s

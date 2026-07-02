@@ -1,0 +1,104 @@
+// dataguard.capa
+//
+// The DataGuard pipeline, wired end to end:
+//
+//   read (Fs, read-only over data/)
+//     -> parse + validate (ingest.capa, pure)
+//     -> aggregate public metrics (metrics.capa, pure)
+//     -> pseudonymise subjects (pseudonym.capa, one audited declassify)
+//     -> route outputs (report.capa + attest.capa, Fs write over out/)
+//     -> audit log line (Stdio)
+//
+// Capability discipline. main acquires exactly two capabilities, Fs and
+// Stdio, and immediately splits the Fs into two attenuated views:
+//
+//   * a READ-ONLY view restricted to data/ for the input, and
+//   * a WRITE view restricted to out/ for the report and attestation.
+//
+// Note what main never acquires: Net, Env, Proc, Db, Clock, Random,
+// Unsafe. The capability SBOM (capa --manifest / --cyclonedx) proves it,
+// so "this pipeline cannot exfiltrate to the network" is a machine-
+// checked fact, not a promise.
+//
+// The information-flow guarantee is orthogonal and just as strong: the
+// four PII fields are @secret, so the compiler proves none of them can
+// reach the public report or the console without crossing the single
+// audited declassify in pseudonym.capa. leaky_dataguard.capa shows the
+// compiler rejecting a deliberate breach of exactly that rule.
+//
+// Paths are literals routed through helpers, so the compiler fixes the
+// filesystem authority at compile time (constant propagation) rather
+// than taking it from an argument. That keeps Env out of the surface and
+// makes the WASI component's authority statically known.
+
+import domain
+import ingest
+import metrics
+import pseudonym
+import report
+import attest
+
+// The three output paths, named once as module consts so the report,
+// the attestation and the console log all speak the same values. These
+// consts feed the human-readable messages; the Fs SINK call sites below
+// pass the SAME paths as inline string literals, because the WASI static
+// preopen ceiling only const-propagates a literal at a sink slot when it
+// is a literal (or a capability-parameter argument), not when it is a
+// const read off a restricted-Fs receiver. Keeping the sink argument a
+// literal is the idiom that closes the ceiling with no operator grant.
+const REPORT_PATH: String = "out/report.txt"
+const ATTEST_TXT_PATH: String = "out/attestation.txt"
+const ATTEST_JSON_PATH: String = "out/attestation.json"
+
+// The pipeline over already-read input text. Returns the number of
+// records processed on success so main can log and attest it. Every
+// fallible step threads through Result and the ``?`` operator.
+//
+// Each of the three outputs is written with an INLINE literal path at
+// the Fs sink. Under --wasi that is what closes the static preopen
+// ceiling: the component's filesystem authority is fixed at compile time
+// by constant propagation, with no operator ``--preopen`` grant needed.
+fun run_pipeline(fs_out: Fs, text: String) -> Result<Int, DataError>
+    let records = ingest.parse_dataset(text)?
+    let summary = metrics.summarise(records)
+
+    let report_body = report.build_report(records, summary)
+    match fs_out.write("out/report.txt", report_body)
+        Ok(_)  -> ()
+        Err(e) -> return Err(Io("${e}"))
+
+    let count = records.length()
+    let att_txt = attest.attestation_text(count, REPORT_PATH)
+    let att_json = attest.attestation_json(count, REPORT_PATH)
+    match fs_out.write("out/attestation.txt", att_txt)
+        Ok(_)  -> ()
+        Err(e) -> return Err(Io("${e}"))
+    match fs_out.write("out/attestation.json", att_json)
+        Ok(_)  -> ()
+        Err(e) -> return Err(Io("${e}"))
+
+    return Ok(count)
+
+pub fun main(stdio: Stdio, fs: Fs)
+    stdio.println("== capa_dataguard: data-governance pipeline ==")
+
+    // Least privilege: one Fs in, two attenuated views out. The input
+    // view is used only to read data/; the output view only to write
+    // out/. Neither can touch the other's directory, the network, or
+    // anything else.
+    let fs_in = fs.restrict_to("data/")
+    let fs_out = fs.restrict_to("out/")
+
+    // Inline literal at the read sink (same reason as the write sinks).
+    let text = match fs_in.read("data/customers.csv")
+        Ok(s)  -> s
+        Err(e) -> return stdio.eprintln("cannot read input dataset: ${e}")
+
+    match run_pipeline(fs_out, text)
+        Ok(count) ->
+            stdio.println("processed ${count} records")
+            stdio.println("public report written to ${REPORT_PATH}")
+            stdio.println("attestation written to ${ATTEST_TXT_PATH} and ${ATTEST_JSON_PATH}")
+            stdio.println("no raw personal data reached the public report (proved by capa --check)")
+        Err(e) ->
+            stdio.eprintln("pipeline failed: ${data_error_message(e)}")

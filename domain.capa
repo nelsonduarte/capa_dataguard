@@ -1,0 +1,75 @@
+// domain.capa
+//
+// The shared data vocabulary for DataGuard. Pure data plus small total
+// helpers; zero capabilities, no I/O. Every other module imports this so
+// the security labels stay consistent end to end.
+//
+// The whole information-flow story starts here, in the type annotations.
+// A customer record mixes two populations of fields:
+//
+//   * PERSONAL DATA (GDPR Art. 4 "personal data", CCPA "personal
+//     information"): a natural person's name, email, national id and
+//     IBAN. These are marked @secret. From that single annotation the
+//     compiler propagates a confidentiality label through every value
+//     derived from them and proves that none of them can reach a public
+//     sink (a report file, the console) without passing through an
+//     audited ``declassify``.
+//
+//   * NON-PERSONAL, ANALYTIC fields: the region, plan, signup month and
+//     the transaction amount. These carry no label and are the only raw
+//     material the public analytics report is built from.
+//
+// That split is the design. The public report is derived exclusively
+// from the unlabelled fields; the only PII-derived value it may carry is
+// a non-reversible pseudonym, produced at the single audited bridge in
+// pseudonym.capa.
+
+// =========================================================
+// Customer record (post-validation, in-memory form)
+// =========================================================
+//
+// Marking a field @secret puts every value read from it into the secret
+// domain (field reads inherit the annotation). name / email / national_id
+// / iban are the regulated personal data; region / plan / signup_date /
+// amount_cents are non-personal analytic attributes.
+
+pub type Record {
+    name: @secret String,          // full name - never written in the clear
+    email: @secret String,         // direct identifier - pseudonymised only
+    national_id: @secret String,   // national identifier - never disclosed
+    iban: @secret String,          // bank account - never disclosed
+    region: String,                // non-personal: coarse geography
+    plan: String,                  // non-personal: product tier
+    signup_date: String,           // non-personal: YYYY-MM-DD
+    amount_cents: Int              // non-personal: monthly value, minor units
+}
+
+// The month bucket (YYYY-MM) a signup_date falls into. Derived purely
+// from the non-personal signup_date, so the result is public.
+pub fun signup_month(r: Record) -> String
+    let d = r.signup_date
+    if d.length() >= 7
+        return d.substring(0, 7)
+    return "unknown"
+
+// =========================================================
+// Validation / parsing error channel
+// =========================================================
+//
+// The pipeline threads Result across every fallible step. A malformed
+// record is a typed, explainable error, never a crash.
+
+pub type DataError =
+    MissingColumn(String)
+    MalformedRow(Int)
+    BadAmount(Int)
+    EmptyDataset
+    Io(String)
+
+pub fun data_error_message(e: DataError) -> String
+    return match e
+        MissingColumn(name) -> "input is missing required column '${name}'"
+        MalformedRow(idx) -> "record ${idx} has fewer fields than the header"
+        BadAmount(idx)      -> "record ${idx} has a non-numeric amount"
+        EmptyDataset        -> "the dataset has a header but no data records"
+        Io(msg)             -> "I/O error: ${msg}"

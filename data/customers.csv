@@ -1,0 +1,15 @@
+name,email,national_id,iban,region,plan,signup_date,amount_cents
+Ana Ribeiro,ana.ribeiro@example.com,PT123456789,PT50000201231234567890154,north,pro,2026-01-14,4999
+Bruno Costa,bruno.costa@example.com,PT234567890,PT50000201231234567890155,south,free,2026-01-22,0
+Carla Mendes,carla.mendes@example.net,PT345678901,PT50000201231234567890156,north,pro,2026-02-03,4999
+Diogo Fonseca,diogo.fonseca@example.org,PT456789012,PT50000201231234567890157,center,enterprise,2026-02-19,19900
+Eva Nunes,eva.nunes@example.com,PT567890123,PT50000201231234567890158,south,pro,2026-02-27,4999
+Filipe Rocha,filipe.rocha@example.net,PT678901234,PT50000201231234567890159,north,free,2026-03-05,0
+Gabriela Sousa,gabriela.sousa@example.com,PT789012345,PT50000201231234567890160,islands,pro,2026-03-11,4999
+Hugo Martins,hugo.martins@example.org,PT890123456,PT50000201231234567890161,center,enterprise,2026-03-18,19900
+Ines Carvalho,ines.carvalho@example.com,PT901234567,PT50000201231234567890162,south,free,2026-03-29,0
+Joao Pereira,joao.pereira@example.net,PT012345678,PT50000201231234567890163,north,pro,2026-04-02,4999
+Katia Lopes,katia.lopes@example.com,PT112233445,PT50000201231234567890164,islands,enterprise,2026-04-15,19900
+Luis Almeida,luis.almeida@example.org,PT223344556,PT50000201231234567890165,center,pro,2026-04-21,4999
+Marta Dias,marta.dias@example.com,PT334455667,PT50000201231234567890166,south,pro,2026-05-08,4999
+Nuno Ferreira,nuno.ferreira@example.net,PT445566778,PT50000201231234567890167,north,free,2026-05-19,0

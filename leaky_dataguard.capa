@@ -1,0 +1,46 @@
+// leaky_dataguard.capa
+//
+// COUNTER-EXAMPLE. This file deliberately does the wrong thing so you
+// can watch the information-flow checker reject it. It is NOT part of the
+// pipeline and is never imported by dataguard.capa.
+//
+// Try it:
+//     python -m capa --check leaky_dataguard.capa
+//
+// You will see a hard ERROR: a @secret personal-data field (email /
+// national_id / iban) reaches a public sink (the report file via
+// Fs.write, or the console via Stdio.println) WITHOUT crossing an
+// audited declassify. Every function below opts into @strict_ifc, which
+// makes such a flow a compile error, so the program refuses to build.
+//
+// The RIGHT way to reference a subject in public output is the audited
+// pseudonym bridge (pseudonym.subject_token), which declassifies a keyed
+// one-way token with a recorded GDPR reason. These functions skip it,
+// and the compiler stops them.
+
+import domain
+
+// WRONG: writes the raw email straight into the public report file.
+// r.email is @secret, the interpolated string is @secret, and Fs.write
+// is a public sink. There is no declassify, so this is an unaudited
+// disclosure of a direct identifier.
+@strict_ifc()
+fun leak_email_to_report(fs: Fs, r: Record)
+    let line = "subject ${r.email} region=${r.region}\n"
+    match fs.write("out/report.txt", line)
+        Ok(_)  -> ()
+        Err(_) -> ()
+
+// WRONG: prints the national id to the console. Same violation, a
+// different public sink (Stdio.println).
+@strict_ifc()
+fun leak_national_id(stdio: Stdio, r: Record)
+    stdio.println("processing citizen ${r.national_id}")
+
+// WRONG: the IBAN must never leave the secret domain. Writing it to the
+// report is exactly the leak the pipeline exists to prevent.
+@strict_ifc()
+fun leak_iban_to_report(fs: Fs, r: Record)
+    match fs.write("out/report.txt", "iban=${r.iban}\n")
+        Ok(_)  -> ()
+        Err(_) -> ()

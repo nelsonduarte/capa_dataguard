@@ -1,0 +1,79 @@
+// report.capa
+//
+// Build and persist the PUBLIC analytics report. Two properties are
+// enforced here, by two different mechanisms:
+//
+//  1. CONFIDENTIALITY (no PII in the clear): the report content is
+//     assembled from the public Summary (metrics.capa) and, per subject,
+//     from the pseudonym token (pseudonym.capa) plus the non-personal
+//     fields. Because the report is written through ``Fs.write``, a
+//     @secret value reaching the content would be a compile-time
+//     information-flow violation. The ONLY PII-derived value it may
+//     carry is the pseudonym, which crossed the audited declassify.
+//
+//  2. LEAST PRIVILEGE (write-only, to one directory): the caller hands
+//     this module an Fs already attenuated to the output directory. This
+//     module cannot read the input, reach the network, or write outside
+//     that prefix; the SBOM proves the surface.
+//
+// Capability: Fs (write) only.
+
+import domain
+import metrics
+import pseudonym
+
+fun money(cents: Int) -> String
+    let euros = cents / 100
+    let rem = cents - euros * 100
+    let frac = if rem < 10 then "0${rem}" else "${rem}"
+    return "${euros}.${frac}"
+
+fun bucket_lines(title: String, buckets: List<Bucket>) -> String
+    var s = "  ${title}:\n"
+    for b in buckets
+        s = "${s}    ${b.key}: count=${b.count} total=${money(b.total_cents)} avg=${money(b.average_cents())}\n"
+    return s
+
+// The dataset-wide analytic section, derived purely from public metrics.
+fun metrics_section(sum: Summary) -> String
+    var s = "== Aggregate metrics ==\n"
+    s = "${s}  records: ${sum.record_count}\n"
+    s = "${s}  total value: ${money(sum.total_cents)}\n"
+    s = "${s}${bucket_lines("by region", sum.by_region)}"
+    s = "${s}${bucket_lines("by plan", sum.by_plan)}"
+    s = "${s}${bucket_lines("by signup month", sum.by_month)}"
+    return s
+
+// One public subject line: the pseudonym token, then ONLY the
+// non-personal fields (region, plan, month, amount). No name, email,
+// national id or IBAN appears; those are @secret and never referenced
+// here, so there is nothing for the compiler to reject.
+fun subject_line(r: Record) -> String
+    let token = pseudonym.subject_token(r)
+    return "  ${token}  region=${r.region} plan=${r.plan} month=${signup_month(r)} value=${money(r.amount_cents)}\n"
+
+fun subjects_section(records: List<Record>) -> String
+    var s = "== Pseudonymised subjects ==\n"
+    for r in records
+        s = "${s}${subject_line(r)}"
+    return s
+
+// The full public report as one string. Deterministic and identical
+// across backends: no clock, no randomness, first-seen bucket order.
+pub fun build_report(records: List<Record>, sum: Summary) -> String
+    var s = "DataGuard public analytics report\n"
+    s = "${s}=================================\n\n"
+    s = "${s}${metrics_section(sum)}\n"
+    s = "${s}${subjects_section(records)}"
+    return s
+
+// The report content is written to the attenuated (write-only) Fs at the
+// call site in dataguard.run_pipeline, with an INLINE literal path. It is
+// deliberately NOT wrapped in a shared ``write(fs, path, content)``
+// helper here: under --wasi the static preopen ceiling only closes when
+// each Fs sink slot carries a SINGLE literal, and a shared writer called
+// with several distinct literal paths presents a multi-literal slot the
+// ceiling treats as dynamic (fail-closed). Writing at the sink with a
+// per-file literal keeps the component's filesystem authority statically
+// known. The content itself is public by construction: if any @secret
+// value had reached it, the Fs.write would not have compiled.

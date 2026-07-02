@@ -1,0 +1,37 @@
+DataGuard public analytics report
+=================================
+
+== Aggregate metrics ==
+  records: 14
+  total value: 946.93
+  by region:
+    north: count=5 total=149.97 avg=29.99
+    south: count=4 total=99.98 avg=24.99
+    center: count=3 total=447.99 avg=149.33
+    islands: count=2 total=248.99 avg=124.49
+  by plan:
+    pro: count=7 total=349.93 avg=49.99
+    free: count=4 total=0.00 avg=0.00
+    enterprise: count=3 total=597.00 avg=199.00
+  by signup month:
+    2026-01: count=2 total=49.99 avg=24.99
+    2026-02: count=3 total=298.98 avg=99.66
+    2026-03: count=4 total=248.99 avg=62.24
+    2026-04: count=3 total=298.98 avg=99.66
+    2026-05: count=2 total=49.99 avg=24.99
+
+== Pseudonymised subjects ==
+  subj_dbc5d8789e48fe95  region=north plan=pro month=2026-01 value=49.99
+  subj_b2de5d785d7b644c  region=south plan=free month=2026-01 value=0.00
+  subj_5ea4365bfec83c5e  region=north plan=pro month=2026-02 value=49.99
+  subj_4fec4943733c6f4a  region=center plan=enterprise month=2026-02 value=199.00
+  subj_bdb8ba96667c218c  region=south plan=pro month=2026-02 value=49.99
+  subj_ffcfb1c8433e9e3d  region=north plan=free month=2026-03 value=0.00
+  subj_32d960b6acce3bc7  region=islands plan=pro month=2026-03 value=49.99
+  subj_8680a16a39e02545  region=center plan=enterprise month=2026-03 value=199.00
+  subj_32e94a5f6b2fe1f8  region=south plan=free month=2026-03 value=0.00
+  subj_d2d9e12bd9f8bbed  region=north plan=pro month=2026-04 value=49.99
+  subj_7169172204575aed  region=islands plan=enterprise month=2026-04 value=199.00
+  subj_f385590cdea18e85  region=center plan=pro month=2026-04 value=49.99
+  subj_b2739500fcfe87d2  region=south plan=pro month=2026-05 value=49.99
+  subj_2f4cb8f97ab0bdbb  region=north plan=free month=2026-05 value=0.00

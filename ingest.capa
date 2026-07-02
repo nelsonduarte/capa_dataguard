@@ -1,0 +1,125 @@
+// ingest.capa
+//
+// Parse the customer dataset (RFC 4180 CSV, via capa_csv) into validated
+// domain Records, threading Result across every fallible step.
+//
+// Reading a CSV cell yields a plain public String. Placing it into a
+// @secret field of Record is where the personal data ENTERS the secret
+// domain: from that assignment on, any read of r.name / r.email /
+// r.national_id / r.iban carries the @secret label, and the compiler
+// tracks it to every sink. The non-personal cells (region, plan,
+// signup_date, amount) go into unlabelled fields and stay public.
+//
+// This module holds no capabilities: it works on text already read by
+// the caller through an attenuated Fs. Keeping the reader (Fs) and the
+// parser (pure) apart is deliberate least-privilege.
+
+import domain
+import capa_csv.model
+import capa_csv.header
+
+// The columns DataGuard requires, in the order the report assumes.
+fun required_columns() -> List<String>
+    return ["name", "email", "national_id", "iban", "region", "plan", "signup_date", "amount_cents"]
+
+// Parse a signed base-10 integer of minor currency units. Returns None
+// for any non-numeric input so the caller can raise BadAmount with the
+// offending record index.
+fun parse_amount(s: String) -> Option<Int>
+    let t = s.trim()
+    if t.is_empty()
+        return None
+    var i = 0
+    var sign = 1
+    if t.starts_with("-")
+        sign = -1
+        i = 1
+    var acc = 0
+    var seen = false
+    while i < t.length()
+        let c = t.substring(i, i + 1)
+        let d = digit_value(c)
+        if d < 0
+            return None
+        acc = acc * 10 + d
+        seen = true
+        i = i + 1
+    if not seen
+        return None
+    return Some(acc * sign)
+
+fun digit_value(c: String) -> Int
+    if c == "0"
+        return 0
+    if c == "1"
+        return 1
+    if c == "2"
+        return 2
+    if c == "3"
+        return 3
+    if c == "4"
+        return 4
+    if c == "5"
+        return 5
+    if c == "6"
+        return 6
+    if c == "7"
+        return 7
+    if c == "8"
+        return 8
+    if c == "9"
+        return 9
+    return -1
+
+// Turn one data record (addressed by column name) into a Record. The
+// four PII columns flow into @secret fields; the analytic columns stay
+// public. A missing amount is a typed BadAmount error, not a crash.
+fun build_record(view: HeaderTable, idx: Int) -> Result<Record, DataError>
+    let name        = cell(view, idx, "name")?
+    let email       = cell(view, idx, "email")?
+    let national_id = cell(view, idx, "national_id")?
+    let iban        = cell(view, idx, "iban")?
+    let region      = cell(view, idx, "region")?
+    let plan        = cell(view, idx, "plan")?
+    let signup_date = cell(view, idx, "signup_date")?
+    let amount_raw  = cell(view, idx, "amount_cents")?
+    let amount = match parse_amount(amount_raw)
+        Some(n) -> n
+        None    -> return Err(BadAmount(idx))
+    return Ok(Record {
+        name: name,
+        email: email,
+        national_id: national_id,
+        iban: iban,
+        region: region,
+        plan: plan,
+        signup_date: signup_date,
+        amount_cents: amount
+    })
+
+// One cell by column name, mapping the CSV error into a DataError the
+// pipeline speaks.
+fun cell(view: HeaderTable, idx: Int, column: String) -> Result<String, DataError>
+    return match view.get(idx, column)
+        Ok(v)  -> Ok(v)
+        Err(_) -> Err(MalformedRow(idx))
+
+// Parse the whole dataset. Verifies the header carries every required
+// column up front (a clear MissingColumn beats a per-row ShortRow), then
+// builds one Record per data row.
+pub fun parse_dataset(text: String) -> Result<List<Record>, DataError>
+    let view = match parse_headed(text)
+        Ok(v)  -> v
+        Err(e) -> return Err(Io(error_message(e)))
+    for col in required_columns()
+        if not view.has_column(col)
+            return Err(MissingColumn(col))
+    if view.length() == 0
+        return Err(EmptyDataset)
+    var records: List<Record> = []
+    var i = 0
+    while i < view.length()
+        let r = build_record(view, i)?
+        records.push(r)
+        i = i + 1
+    return Ok(records)

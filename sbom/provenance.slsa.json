@@ -1,0 +1,111 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "attest.capa",
+      "digest": {
+        "sha256": "954e745c278118d531b28031357ef35422619890cfd2a45c67207e214165fcbb"
+      }
+    },
+    {
+      "name": "dataguard.capa",
+      "digest": {
+        "sha256": "7892024c91f46112f69740068ef47246b6837ca03ada2be876f9f0b6b9ce0832"
+      }
+    },
+    {
+      "name": "domain.capa",
+      "digest": {
+        "sha256": "efbb3755a8aea3e7facb4c98e6f844efde102d1efc61a6f2300d552cf02217f4"
+      }
+    },
+    {
+      "name": "ingest.capa",
+      "digest": {
+        "sha256": "7414b05ed1b4a0d93f8110ad728304ecc6b84b3a6bb782ee20126a8068d8acbe"
+      }
+    },
+    {
+      "name": "metrics.capa",
+      "digest": {
+        "sha256": "f8857763663e7438e0f6a2ba725fdeab322c850d4297adb4226a4a6d4efa9426"
+      }
+    },
+    {
+      "name": "pseudonym.capa",
+      "digest": {
+        "sha256": "8423c8f0085bae0fbdb6c5ec77988d6eeab5c96b3d7b26eb253ce6449f2c391e"
+      }
+    },
+    {
+      "name": "report.capa",
+      "digest": {
+        "sha256": "f7b526b7d1267fb4c6e456a32d72063f6041e978c52d20982bb87d75ec43f76b"
+      }
+    },
+    {
+      "name": "vendor/capa_csv/header.capa",
+      "digest": {
+        "sha256": "138b5cadbbe34d7cddff2ca19ea526ee77d6c9fa3016909711b5e678a7221ee3"
+      }
+    },
+    {
+      "name": "vendor/capa_csv/model.capa",
+      "digest": {
+        "sha256": "6b465e5b05ece6824ab6da4f6211ff90451d6b43dd69efe8552904ae31ba36b1"
+      }
+    },
+    {
+      "name": "vendor/capa_csv/parse.capa",
+      "digest": {
+        "sha256": "ca50f268488fced7628a5e2677756f60a4b28893ca58c5525451a2abacf14e41"
+      }
+    },
+    {
+      "name": "vendor/capa_hash/hmac.capa",
+      "digest": {
+        "sha256": "a10271e07ae0fbb8aa3af89b2931e74d8cc83dfb3bc82208d69b0ca1e9a3c9ba"
+      }
+    },
+    {
+      "name": "vendor/capa_hash/sha256.capa",
+      "digest": {
+        "sha256": "8d521ee3616e7b7a003cf5bc238e00df9847b33626842d48a995ed0cb5b9e968"
+      }
+    },
+    {
+      "name": "vendor/capa_hash/tables.capa",
+      "digest": {
+        "sha256": "1ee64120597a312387d95e622c513acaf7e5de8cef88e36e0fd0cdbd9da5208d"
+      }
+    }
+  ],
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "predicate": {
+    "buildDefinition": {
+      "buildType": "https://capa-language.com/build/transpile-to-python/v1",
+      "externalParameters": {
+        "source": "dataguard.capa"
+      },
+      "internalParameters": {
+        "capaVersion": "1.13.0",
+        "target": "python>=3.10"
+      },
+      "resolvedDependencies": []
+    },
+    "runDetails": {
+      "builder": {
+        "id": "https://capa-language.com/cli",
+        "version": {
+          "capa": "1.13.0"
+        }
+      },
+      "metadata": {
+        "invocationId": "c5692cb9-65db-552b-90b9-aceafef48e94",
+        "startedOn": "2026-01-01T00:00:00Z",
+        "finishedOn": "2026-01-01T00:00:00Z"
+      },
+      "byproducts": []
+    }
+  }
+}

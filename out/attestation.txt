@@ -1,0 +1,24 @@
+DataGuard non-leak attestation
+==============================
+
+records processed: 14
+personal-data fields held under a @secret confidentiality label:
+  - name
+  - email
+  - national_id
+  - iban
+
+audited disclosure bridges (secret -> public):
+  - pseudonym.subject_token: GDPR Art. 4(5) keyed one-way token of the email
+
+claim: no raw personal-data field reaches the public report at
+  out/report.txt. The only PII-derived value it carries is the
+  non-reversible pseudonym above.
+
+how this claim is machine-verified (not merely asserted):
+  - capa --check *.capa  proves every @secret field can reach a
+    public sink only through a declassify (see leaky_dataguard.capa
+    for the rejection of a deliberate leak).
+  - capa --manifest dataguard.capa  lists every declassification
+    site with its reason and the exact capability surface
+    (Fs, Stdio; provably no Net).

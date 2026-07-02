@@ -1,0 +1,50 @@
+// pseudonym.capa
+//
+// The single audited secret -> public bridge in DataGuard.
+//
+// A subject in the public report must be referenceable (so an analyst
+// can join two reports, or a data subject can be located on a deletion
+// request) WITHOUT the report carrying any direct identifier. The
+// answer is a pseudonym: a keyed, non-reversible token derived from the
+// @secret email under a managed key, via HMAC-SHA256.
+//
+// The HMAC of a @secret value is itself @secret (it derives from the
+// secret, and a keyed hash is a partial oracle: it can confirm a guessed
+// email). Emitting that token into the public report is therefore a
+// deliberate DISCLOSURE, and the only sanctioned way to make a
+// disclosure in Capa is ``declassify`` with a recorded reason. That
+// reason is emitted into the capability SBOM as a
+// ``declassification_site``: a machine-checkable record of exactly where,
+// and why, DataGuard turns personal data into a publishable token.
+//
+// This is the ONE place raw PII is allowed to influence public output,
+// and even here what escapes is a one-way pseudonym, never the email.
+// Every other path from a @secret field to a public sink is a
+// compile-time information-flow error (see leaky_dataguard.capa).
+//
+// Zero capabilities: pure keyed hashing over the record.
+
+import domain
+import capa_hash.hmac
+
+// The managed pseudonymisation key. In production this comes from a KMS
+// or a mounted secret; here it is a fixed value so the demo output is
+// reproducible across backends. Rotating it re-pseudonymises every
+// subject (the tokens change), which is the intended GDPR behaviour: the
+// pseudonym is only linkable while the key is held.
+pub fun pseudonym_key() -> String
+    return "dataguard-pseudonym-key-v1"
+
+// Short, stable subject token for the public report: a keyed one-way
+// pseudonym of the @secret email, truncated to 16 hex chars for
+// readability. The full HMAC (and thus the email it derives from) stays
+// in the secret domain up to the declassify; only the finished token
+// crosses into the public domain, with a GDPR reason recorded in the
+// SBOM.
+pub fun subject_token(r: Record) -> String
+    let full = hmac_sha256_hex_utf8(pseudonym_key(), r.email)
+    let short = full.substring(0, 16)
+    return declassify(
+        "subj_${short}",
+        reason: "GDPR Art. 4(5) pseudonymisation: the public report references a subject only by a keyed one-way token of the email, from which the email cannot be recovered; the direct identifier never leaves the secret domain"
+    )

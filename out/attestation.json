@@ -1,0 +1,9 @@
+{
+  "tool": "capa_dataguard",
+  "records_processed": 14,
+  "pii_fields": ["name", "email", "national_id", "iban"],
+  "disclosure_bridges": ["pseudonym.subject_token"],
+  "public_report": "out/report.txt",
+  "claim": "no raw personal-data field reaches the public report; only a non-reversible pseudonym does",
+  "verified_by": ["capa --check", "capa --manifest", "capa --cyclonedx"]
+}
