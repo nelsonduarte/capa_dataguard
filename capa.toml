@@ -19,7 +19,7 @@
 [package]
 name = "capa_dataguard"
 version = "0.1.0"
-capa = ">=1.3.0"
+capa = ">=1.15.0"
 
 [dependencies.capa_csv]
 path = "vendor/capa_csv"
