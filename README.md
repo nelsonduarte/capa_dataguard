@@ -169,7 +169,7 @@ they are the machine-verifiable non-leak attestation.
 | `data/customers.csv` | sample dataset (14 records, fictitious PII) |
 | `out/` | sample generated report + attestation |
 | `sbom/` | sample generated manifest + SBOMs + provenance |
-| `vendor/capa_csv`, `vendor/capa_hash` | pure, capability-free path dependencies |
+| `capa_csv`, `capa_hash` (git deps) | pure, capability-free; fetched + GPG/SLSA-verified by `capa install` into `vendor/` |
 
 ## Run it
 
@@ -177,6 +177,15 @@ All commands use the local Capa compiler; substitute `python -m capa` for
 `capa` if the installed `capa` is not the build you intend.
 
 ```sh
+# One-time: fetch + verify the git dependencies (needs capa >= 1.15.1).
+# `capa install` clones capa_csv and capa_hash at their signed tags,
+# verifies each tag's GPG signature against the verify_key in capa.toml
+# and its SLSA provenance, writes capa.lock, and vendors the sources
+# under vendor/. Import the publisher key first (see each library's
+# SECURITY.md). Both deps are pure and hold zero capabilities, so this
+# adds a verified supply chain without widening the {Fs, Stdio} surface.
+capa install
+
 # Type-check + information-flow check (clean: no leaks)
 capa --check dataguard.capa
 
@@ -216,14 +225,39 @@ capa --wasm --component --wasi --preopen out/:rw --run dataguard.capa
 
 ## Dependencies
 
-Two dependencies, both **pure and capability-free**, vendored under
-`vendor/` and wired as **path dependencies** in `capa.toml`:
+Two dependencies, both **pure and capability-free**, resolved as
+**verified git dependencies** in `capa.toml`:
 
 - `capa_csv` - RFC 4180 CSV parsing (the input reader).
 - `capa_hash` - HMAC-SHA256, for the non-reversible pseudonym.
 
-Neither holds any authority, so the DataGuard capability surface stays
-exactly `{Fs, Stdio}`. The SBOM proves the dependencies do not widen it.
+Each is pinned to a **GPG-signed release tag** with the publisher's
+`verify_key`. `capa install` (needs `capa >= 1.15.1`) fetches each one at
+that tag, verifies the tag's **GPG signature** against `verify_key` and
+its **SLSA build provenance** (via `gh attestation verify` against the
+public Sigstore log), records the resolved commit SHA in `capa.lock`, and
+vendors the sources under `vendor/` (git-ignored, not committed). A
+force-pushed tag or a substituted commit is rejected before the code is
+ever compiled.
+
+```toml
+[dependencies.capa_csv]
+git = "https://github.com/nelsonduarte/capa_csv"
+tag = "v0.1.1"
+verify_key = "6C1D222D491FB88031E041A536CFB426101AA24B"
+
+[dependencies.capa_hash]
+git = "https://github.com/nelsonduarte/capa_hash"
+tag = "v0.1.2"
+verify_key = "6C1D222D491FB88031E041A536CFB426101AA24B"
+```
+
+This is the verifiable supply chain Capa is about, made concrete: the
+dependencies are not trusted by convention, they are **cryptographically
+verified at install time**, and the pinned, signed provenance is recorded
+in `capa.lock`. Neither dependency holds any authority, so the DataGuard
+capability surface stays exactly `{Fs, Stdio}`, and the SBOM proves they
+do not widen it.
 
 ## Beyond v1 (documented, not shipped)
 

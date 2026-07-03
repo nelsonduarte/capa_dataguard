@@ -5,24 +5,31 @@
 # unauthorised output. The proof is the Capa compiler's information-flow
 # analysis plus the capability SBOM it emits for this very program.
 #
-# Two dependencies, both pure and capability-free, vendored under
-# vendor/ and wired as PATH dependencies so their parent (vendor/) joins
-# the module search path:
+# Two dependencies, both pure and capability-free, resolved as VERIFIED
+# git dependencies. `capa install` fetches each one at its signed tag,
+# verifies the tag's GPG signature against verify_key and its SLSA
+# provenance, records the pinned commit in capa.lock, and vendors it
+# under vendor/ (git-ignored):
 #
 #   capa_csv  - RFC 4180 CSV parsing (the input dataset reader).
 #   capa_hash - HMAC-SHA256, used for non-reversible pseudonymisation.
 #
 # Neither dependency holds any authority, so the DataGuard capability
 # surface stays exactly what main.capa acquires: Fs and Stdio, nothing
-# more. The compiler's --manifest / --cyclonedx output proves it.
+# more. The compiler's --manifest / --cyclonedx output proves it, and
+# the verified supply chain is itself part of the attestation.
 
 [package]
 name = "capa_dataguard"
 version = "0.1.0"
-capa = ">=1.15.0"
+capa = ">=1.15.1"
 
 [dependencies.capa_csv]
-path = "vendor/capa_csv"
+git = "https://github.com/nelsonduarte/capa_csv"
+tag = "v0.1.1"
+verify_key = "6C1D222D491FB88031E041A536CFB426101AA24B"
 
 [dependencies.capa_hash]
-path = "vendor/capa_hash"
+git = "https://github.com/nelsonduarte/capa_hash"
+tag = "v0.1.2"
+verify_key = "6C1D222D491FB88031E041A536CFB426101AA24B"
